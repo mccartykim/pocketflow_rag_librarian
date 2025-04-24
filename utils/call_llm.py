@@ -1,13 +1,13 @@
-from openai import OpenAI
+from google import genai
 
 # Learn more about calling the LLM: https://the-pocket.github.io/PocketFlow/utility_function/llm.html
 def call_llm(prompt):    
-    client = OpenAI(api_key="YOUR_API_KEY_HERE")
-    r = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
+    client = genai.Client()
+    r = client.models.generate_content(
+        model="gemini-2.5-flash-preview-04-17",
+        contents=prompt
     )
-    return r.choices[0].message.content
+    return r.text
     
 if __name__ == "__main__":
     prompt = "What is the meaning of life?"

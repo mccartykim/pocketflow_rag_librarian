@@ -1,16 +1,16 @@
-from flow import qa_flow
+from flow import create_qa_flow
 
 # Example main function
 # Please replace this with your own main function
 def main():
     shared = {
-        "question": "In one sentence, what's the end of universe?",
-        "answer": None
+            "context": []
     }
 
+    qa_flow = create_qa_flow()
     qa_flow.run(shared)
-    print("Question:", shared["question"])
-    print("Answer:", shared["answer"])
+    print("Query:", shared["query"])
+    print("Analysis:", shared["analysis"])
 
 if __name__ == "__main__":
     main()
