@@ -1,6 +1,6 @@
 from pocketflow import Node, BatchNode
 from utils.call_llm import call_llm
-import yaml
+import json
 
 import os
 
@@ -38,6 +38,8 @@ class LibrarianNode(Node):
 
     def exec(self, inputs):
         question, context = inputs
+        print("Librarian node doing stuff...")
+        print(context)
         prompt = f"""
 Given question: {question}
 Previous datastore analysis results: {context}
@@ -45,21 +47,26 @@ Should I: 1) Request an analysis of the datastore with a specific query to get m
 
 Stick to specific queries that serve to fill gaps in the previous results, you can request further information on future iterations. Focus on atomic questions that can be used together for an answer
 
-For example: Question: Compare the mental health of Dr. Frankenstein and Bartleby
+For example: ```Question: Compare the mental health of Dr. Frankenstein and Bartleby
 query: What do Dr. Frankensteins words and actions say about his mental health?
 [NEXT ITERATION]
 query: What do Bartleby's words and actions say about his mental health?
+```
 
-Output in yaml:
-```yaml
-action: query/answer
-reason: why this action, or the full answer
-query: specific concept to analyze in datastore, phrased as a question, if present
-```"""
-        print("Librarian node doing stuff...")
+Output your response as a JSON object within a ```json code block. The JSON object should have two keys: "action" and "reason". If the action is "query", include a third key "query" with the specific concept to analyze.
+
+```json
+{{
+  "action": "query/answer",
+  "reason": "why this action",
+  "answer": "full answer to given question, if present"
+  "query": "specific concept to analyze in datastore, phrased as a question, if present"
+}}
+```
+"""
         resp = call_llm(prompt)
-        yaml_str = resp.split("```yaml")[1].split("```")[0].strip()
-        result = yaml.safe_load(yaml_str)
+        json_str = resp.split("```json")[1].split("```")[0].strip()
+        result = json.loads(json_str)
         
         assert isinstance(result, dict)
         assert "action" in result
@@ -75,7 +82,8 @@ query: specific concept to analyze in datastore, phrased as a question, if prese
             print(f"query: {exec_res['query']}")
             shared["query"] = exec_res["query"]
         if exec_res["action"] == "answer":
-            shared["answer"] == exec_res["reason"]
+            print(f"answer: {exec_res['answer']}")
+            shared["answer"] = exec_res["answer"]
         print(exec_res["reason"])
         return exec_res["action"]
 
@@ -105,19 +113,24 @@ Given document contents: {contents}
 With query: {query}
 Is this document at all relevant to the query? If even one piece of information could plausibly help answer the query, it is relevant.
 
-Output in yaml:
-```yaml
-relevant: True/False
-```"""
+Output your response as a JSON object within a ```json code block. The JSON object should have a single key: "relevant".
+
+```json
+{{
+  "relevant": true/false
+}}
+```
+"""
         print("Using LLM to judge relevance")
         resp = call_llm(prompt)
-        yaml_str = resp.split("```yaml")[1].split("```")[0].strip()
-        result = yaml.safe_load(yaml_str)
+        json_str = resp.split("```json")[1].split("```")[0].strip()
+        result = json.loads(json_str)
 
 
         assert isinstance(result, dict)
         assert 'relevant' in result
-        if result['relevant'] == True or result['relevant'] == "true":
+        # Handle both boolean true/false and string "true"/"false"
+        if result['relevant'] is True or str(result['relevant']).lower() == "true":
             print(f"{filename} is relevant")
             return (query, doc)
         else:
@@ -137,42 +150,51 @@ class EvidenceNode(BatchNode):
 Given document name: {filename}
 Given document contents: {contents}
 With query: {query}
-Transcribe whatever parts of the contents could be useful to answer the question, and put it in the following structured yaml. Paraphrase or excise content using parenthesis around your edits where necessary for brevity/clarity. IE: "Today [we] are going to shower, eat breakfast, [...] and then go to bed." Prefer to create separate entries over glossing multiple details/sections together.
+Transcribe whatever parts of the contents could be useful to answer the question, and put it in the following structured JSON.
+
+Paraphrase or excise content using parenthesis around your edits where necessary for brevity/clarity. IE: "Today [we] are going to shower, eat breakfast, [...] and then go to bed." Prefer to create separate entries over glossing multiple details/sections together.
 
 Do not be afraid to copy text that might be only part of an answer, you will later be mixing citations from many sources to form an analysis.
 
-Explain the evidence in the citation in reason.
+Explain the evidence in the citation in the "reason" field.
 
 Example entry for query "Why is the sky blue?":
-```
-content: The sky is blue because of how the air scatters blue light.
-reason: This explains why the sky is blue scientifically
-```
+{{
+  "content": "The sky is blue because of how the air scatters blue light.",
+  "reason": "This explains why the sky is blue scientifically"
+}}
 
-If you can't make any entries, an empty entries list in the yaml is fine. Please escape strings in content to be safe for the yaml parser!
+If you can't make any entries, an empty entries list in the JSON is fine.
 
-Output in yaml:
+Output your response as a JSON object within a ```json code block. The JSON object should have a single key "entries" which is a list of objects, each with "content" and "reason" keys.
 
-```yaml
-entries: 
-    -
-        content: String
-        reason: String
-    -
-        content: String
-        reason: String
+```json
+{{
+  "entries": [
+    {{
+      "content": "String",
+      "reason": "String"
+    }},
+    {{
+      "content": "String",
+      "reason": "String"
+    }}
+  ]
+}}
 ```"""
         print("Using LLM to generate citation entries")
         resp = call_llm(prompt)
-        yaml_str = resp.split("```yaml")[1].split("```")[0].strip()
-        result = yaml.safe_load(yaml_str)
+        json_str = resp.split("```json")[1].split("```")[0].strip()
+        result = json.loads(json_str)
 
 
         assert isinstance(result, dict)
+        assert 'entries' in result
         assert isinstance(result['entries'], list)
         for entry in result['entries']:
-            assert 'content' in result
-            assert 'reason' in result
+            assert isinstance(entry, dict)
+            assert 'content' in entry
+            assert 'reason' in entry
         result['filename'] = filename
         return result
 
@@ -185,7 +207,6 @@ class AnalysisNode(Node):
 
     def exec(self, inputs):
         query, evidences = inputs
-        print(evidences)
         prompt = f"""
 Given document excerpts: {evidences}
 With query: {query}
