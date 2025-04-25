@@ -233,13 +233,12 @@ Write a concise analysis answering the query, or explaining why an answer isn't 
         shared['context'].append(exec_res)
         print(exec_res)
 
-# Wire them in sequence
-"""
-chunk_node = ChunkDocs()
-embed_node = EmbedDocs()
-store_node = StoreIndex()
+class AnswerNode(Node):
+    def prep(self, shared):
+        return shared["question"], shared["answer"]
 
-chunk_node >> embed_node >> store_node
+    def post(self, shared, prep_res, exec_res):
+        question, answer = prep_res
+        print(f"Question: {question} \nAnswer: {answer}")
 
-OfflineFlow = Flow(start=chunk_node)
-"""
+

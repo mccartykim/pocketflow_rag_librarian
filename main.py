@@ -9,8 +9,6 @@ def main():
 
     qa_flow = create_qa_flow()
     qa_flow.run(shared)
-    print("Query:", shared["question"])
-    print("Analysis:", shared["answer"])
 
 if __name__ == "__main__":
     main()
