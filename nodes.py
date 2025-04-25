@@ -19,6 +19,15 @@ def get_documents(query):
                 out += [(file_path, file.read())]
     return out
 
+def list_documents():
+    out = []
+    for root, dirs, files in os.walk(data_path):
+        for filename in files:
+            file_path = os.path.join(root, filename)
+            # Process the file
+            out += file_path
+    return out
+
 class GetQuestionNode(Node):
     def exec(self, _):
         # Get question directly from user input
@@ -34,14 +43,16 @@ class LibrarianNode(Node):
     def prep(self, shared):
         context = shared.get("context", [])
         question = shared["question"]
-        return question, context
+        filenames = list_documents()
+        return question, filenames, context
 
     def exec(self, inputs):
-        question, context = inputs
+        question, filenames, context = inputs
         print("Librarian node doing stuff...")
         print(context)
         prompt = f"""
 Given question: {question}
+List of files in datastore: {filenames}
 Previous datastore analysis results: {context}
 Should I: 1) Request an analysis of the datastore with a specific query to get more information 2) Answer with current knowledge?
 
